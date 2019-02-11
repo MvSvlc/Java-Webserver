@@ -115,16 +115,18 @@ private String readHTTPRequest(InputStream is)
 private void writeHTTPHeader(OutputStream os, String contentType, String contentPath) throws Exception
 {
 
-    File contentFile = new File(contentPath);
-    // Check to see if file exists if so: errorcode - 200
-    if(contentFile.exists()) {
-        os.write("HTTP/1.1 200 OK\n".getBytes());
-        errorCode = 200;
-    }
+	try {
+		File contentFile = new File(contentPath);
+		// Check to see if file exists if so: errorcode - 200
+		if(contentFile.exists()) {
+			os.write("HTTP/1.1 200 OK\n".getBytes());
+			errorCode = 200;
+		}
+	}
     // If file does not exist: errorcode - 404
-    else {
+    catch(FileNotFoundException fnfe) {
         os.write("HTTP/1.1 404 ERROR\n".getBytes());
-        System.err.println("ERROR: File " + contentFile.toString() + " does not exist!");
+        System.err.println("ERROR: File " + contentPath + " does not exist!");
         errorCode = 404;
     }
     
@@ -152,7 +154,7 @@ private void writeContent(OutputStream os, String contentPath) throws Exception
 	String pathCopy = contentPath;
 	
 	// If the file exists
-	if(errorCode == 200) {
+	try {
         File fileName = new File(pathCopy);
  		BufferedReader inBuffer = new BufferedReader(new FileReader(fileName));
  		
@@ -165,8 +167,9 @@ private void writeContent(OutputStream os, String contentPath) throws Exception
  			os.write(content.getBytes());
  			os.write( "\n".getBytes());
  		}
-    } else // If file does not exist
+    } catch(FileNotFoundException fnfe) { // If file does not exist
         write404Content(os);
+	}
 }
 /**
 * A Simple method to put into OutputStream the ERRORCODE 404
