@@ -20,6 +20,10 @@
 *
 **/
 
+// Mason Salcido
+// CS 371
+// Program 1 -- Java WebServer
+
 import java.net.Socket;
 import java.lang.Runnable;
 import java.io.*;
@@ -30,6 +34,7 @@ import java.util.TimeZone;
 public class WebWorker implements Runnable
 {
 
+// Variable Declarations
 String fileName;
 private Socket socket;
 int errorCode;
@@ -56,6 +61,7 @@ public void run()
    try {
       InputStream  is = socket.getInputStream();
       OutputStream os = socket.getOutputStream();
+      // Store file name in contentFile for use throughout program
       String contentFile = readHTTPRequest(is);
       writeHTTPHeader(os,"text/html",contentFile);
       writeContent(os, contentFile);
@@ -69,7 +75,7 @@ public void run()
 }
 
 /**
-* Read the HTTP request header.
+* Read the HTTP request header and return the file path in a String.
 **/
 private String readHTTPRequest(InputStream is)
 {
@@ -81,7 +87,7 @@ private String readHTTPRequest(InputStream is)
       try {
          while (!r.ready()) Thread.sleep(1);
          line = r.readLine();
-         // Parse the file name and extension
+         // Parse the "GET" from request line and recieve file name
          if(line.contains("GET ")) {
 			path = line.substring(4);
 			for(int i = 0; i < path.length(); i++) {
@@ -110,16 +116,18 @@ private void writeHTTPHeader(OutputStream os, String contentType, String content
 {
 
     File contentFile = new File(contentPath);
-    // If the file created exists then send 200
+    // Check to see if file exists if so: errorcode - 200
     if(contentFile.exists()) {
         os.write("HTTP/1.1 200 OK\n".getBytes());
         errorCode = 200;
     }
+    // If file does not exist: errorcode - 404
     else {
         os.write("HTTP/1.1 404 ERROR\n".getBytes());
         System.err.println("ERROR: File " + contentFile.toString() + " does not exist!");
         errorCode = 404;
     }
+    
     // Write all data of header
     os.write("Date: ".getBytes());
     os.write((dateF.format(date)).getBytes());
@@ -143,10 +151,12 @@ private void writeContent(OutputStream os, String contentPath) throws Exception
 	String content = "";
 	String pathCopy = contentPath;
 	
+	// If the file exists
 	if(errorCode == 200) {
         File fileName = new File(pathCopy);
-		String fileNameToString = fileName.toString();
  		BufferedReader inBuffer = new BufferedReader(new FileReader(fileName));
+ 		
+ 		// Loop to write out the contents on the line from the given file
  		while((content = inBuffer.readLine()) != null) {
  			if(content.contains("<cs371date>"))
  				content += dateF.format(date); // Replace <cs371date> tag with today's date
@@ -155,7 +165,7 @@ private void writeContent(OutputStream os, String contentPath) throws Exception
  			os.write(content.getBytes());
  			os.write( "\n".getBytes());
  		}
-    } else
+    } else // If file does not exist
         write404Content(os);
 }
 /**
