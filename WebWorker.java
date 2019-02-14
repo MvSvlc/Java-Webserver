@@ -27,19 +27,14 @@
 import java.net.Socket;
 import java.lang.Runnable;
 import java.io.*;
-import java.util.Date;
-import java.text.DateFormat;
-import java.util.TimeZone;
 
 public class WebWorker implements Runnable
 {
 
 // Variable Declarations
 private Socket socket;
-private boolean favSet;
-private int errorCode;
 String userDirectory = System.getProperty("user.dir");
-private String mimeType;
+WebHelper helper = new WebHelper();
 
 /**
 * Constructor: must have a valid open socket
@@ -47,40 +42,6 @@ private String mimeType;
 public WebWorker(Socket s)
 {
     socket = s;
-}
-
-public String getMimeType() {
-	return this.mimeType;
-}
-
-public void setMimeType(String type) {
-	this.mimeType = type;
-}
-
-public int getErrorCode() {
-	return this.errorCode;
-}
-
-public void setErrorCode(int num) {
-	this.errorCode = num;
-}
-
-public String getDate() {
-	String dateToString;
-	Date date = new Date();
-	DateFormat dateF = DateFormat.getDateTimeInstance();
-	dateF.setTimeZone(TimeZone.getTimeZone("MST"));
-	
-	dateToString = dateF.format(date);
-	return dateToString;
-}
-
-public boolean getFavicon() {
-	return this.favSet;
-}
-
-public void setFavicon(boolean set) {
-	this.favSet = set;
 }
 
 /**
@@ -99,24 +60,28 @@ public void run()
         
         // Store file name in contentFile for use throughout program
         String contentFile = readHTTPRequest(is);
-        if(getErrorCode() == 200) {
+        
+        if(helper.getErrorCode() == 200) {
+        
 			if(contentFile.contains(".html"))
-				setMimeType("text/html");
+				helper.setMimeType("text/html");
 			else if(contentFile.contains(".gif"))
-				setMimeType("image/gif");
+				helper.setMimeType("image/gif");
 			else if(contentFile.contains(".jpeg") || contentFile.contains(".jpg"))
-				setMimeType("image/jpeg");
+				helper.setMimeType("image/jpeg");
 			else if(contentFile.contains(".png"))
-				setMimeType("image/png");
-			else if(contentFile.contains(".ico")) {
-				setFavicon(true);
-				setMimeType("image/x-icon");
-			}
+				helper.setMimeType("image/png");
+			else if(contentFile.contains(".ico"))
+				helper.setMimeType("image/x-icon");
 			else
-				setMimeType("text/html");
-		} else mimeType = "text/html";
-        writeHTTPHeader(os, getMimeType(), contentFile);
-        writeContent(os, getMimeType(), contentFile);
+				helper.setMimeType("text/html");
+				
+		} 
+		else 
+            helper.setMimeType("text/html");
+        
+        writeHTTPHeader(os, helper.getMimeType(), contentFile);
+        writeContent(os, helper.getMimeType(), contentFile);
         os.flush();
         socket.close();
         
@@ -156,12 +121,11 @@ private String readHTTPRequest(InputStream is)
             break;
         }
     }
-    
-	File file = new File(userDirectory+path);
-	if(file.exists())
-		setErrorCode(200);
+
+	if(helper.checkFileExists(userDirectory+path) == true)
+        helper.setErrorCode(200);
 	else
-		setErrorCode(404);
+		helper.setErrorCode(404);
     return path;
 }
 
@@ -173,6 +137,7 @@ private String readHTTPRequest(InputStream is)
 private void writeHTTPHeader(OutputStream os, String contentType, String contentPath) throws Exception
 {
     String path = userDirectory + contentPath;
+    helper.setDate("MST");
 	try {
 		FileReader contentFile = new FileReader(path);
         os.write("HTTP/1.1 200 OK\n".getBytes());
@@ -183,9 +148,9 @@ private void writeHTTPHeader(OutputStream os, String contentType, String content
         os.write("HTTP/1.1 404 ERROR\n".getBytes());
     }
     
-    // Write all data of headermimeType
+    // Write all data of header
     os.write("Date: ".getBytes());
-    os.write(getDate().getBytes());
+    os.write(helper.getDate().getBytes());
     os.write("\n".getBytes());
     os.write("Server: Mason's very own server\n".getBytes());
     os.write("Connection: close\n".getBytes());
@@ -214,7 +179,7 @@ private void writeContent(OutputStream os, String contentType, String contentPat
             // Loop to write out the contents on the line from the given file
             while((content = inBuffer.readLine()) != null) {
                 if(content.contains("<cs371date>"))
-					content = getDate(); // Replace <cs371date> tag with today's date
+					content = helper.getDate(); // Replace <cs371date> tag with today's date
                 if(content.contains("<cs371server>"))
 					content = "This is my ID tag"; // Replace <cs371server> with specified string
                 os.write(content.getBytes());
@@ -243,20 +208,19 @@ private void writeContent(OutputStream os, String contentType, String contentPat
 		write404Content(os,path);
 	}
 }
-/**
-* A Simple method to put into OutputStream the ERRORCODE 404 content
-* @param os is the OutputStream object to write to
-* @param path is the path of the object being requested
-**/
-private void write404Content(OutputStream os, String path) throws Exception
-{
-    os.write("<html>\n<body bgcolor = \"#87CEFA\">\n".getBytes());
-    os.write("<h1><b>404: Not Found</b></h1>\n".getBytes());
-    os.write("The page you are looking for does not exist!\n".getBytes());
-    os.write("Unable to locate:".getBytes());
-    os.write(path.getBytes());
-    
 
-}
+    /**
+    * A Simple method to put into OutputStream the ERRORCODE 404 content
+    * @param os is the OutputStream object to write to
+    * @param path is the path of the object being requested
+    **/
+    public void write404Content(OutputStream os, String path) throws Exception
+    {
+        os.write("<html>\n<body bgcolor = \"#87CEFA\">\n".getBytes());
+        os.write("<h1><b>404: Not Found</b></h1>\n".getBytes());
+        os.write("The page you are looking for does not exist!\n".getBytes());
+        os.write("Unable to locate:".getBytes());
+        os.write(path.getBytes());
+    }
 
 } // end class
