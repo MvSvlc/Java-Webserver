@@ -1,4 +1,4 @@
-<project name = "WebServer" default = "compile">
+<project name = "WebServer2" default = "compile">
     
     <!-- Compiles all java files -->
     <target name = "compile">

@@ -22,7 +22,7 @@
 
 // Mason Salcido
 // CS 371
-// Program 1 -- Java WebServer
+// Program 2 -- Java WebServer with images
 
 import java.net.Socket;
 import java.lang.Runnable;
@@ -35,18 +35,52 @@ public class WebWorker implements Runnable
 {
 
 // Variable Declarations
-String fileName;
 private Socket socket;
-int errorCode;
-Date date = new Date();
-DateFormat dateF = DateFormat.getDateTimeInstance();
+private boolean favSet;
+private int errorCode;
+String userDirectory = System.getProperty("user.dir");
+private String mimeType;
 
 /**
 * Constructor: must have a valid open socket
 **/
 public WebWorker(Socket s)
 {
-   socket = s;
+    socket = s;
+}
+
+public String getMimeType() {
+	return this.mimeType;
+}
+
+public void setMimeType(String type) {
+	this.mimeType = type;
+}
+
+public int getErrorCode() {
+	return this.errorCode;
+}
+
+public void setErrorCode(int num) {
+	this.errorCode = num;
+}
+
+public String getDate() {
+	String dateToString;
+	Date date = new Date();
+	DateFormat dateF = DateFormat.getDateTimeInstance();
+	dateF.setTimeZone(TimeZone.getTimeZone("MST"));
+	
+	dateToString = dateF.format(date);
+	return dateToString;
+}
+
+public boolean getFavicon() {
+	return this.favSet;
+}
+
+public void setFavicon(boolean set) {
+	this.favSet = set;
 }
 
 /**
@@ -57,21 +91,40 @@ public WebWorker(Socket s)
 **/
 public void run()
 {
-   System.err.println("Handling connection...");
-   try {
-      InputStream  is = socket.getInputStream();
-      OutputStream os = socket.getOutputStream();
-      // Store file name in contentFile for use throughout program
-      String contentFile = readHTTPRequest(is);
-      writeHTTPHeader(os,"text/html",contentFile);
-      writeContent(os, contentFile);
-      os.flush();
-      socket.close();
-   } catch (Exception e) {
-      System.err.println("Output error: "+e);
-   }
-   System.err.println("Done handling connection.");
-   return;
+    System.err.println("Handling connection...");
+    try {
+        
+        InputStream  is = socket.getInputStream();
+        OutputStream os = socket.getOutputStream();
+        
+        // Store file name in contentFile for use throughout program
+        String contentFile = readHTTPRequest(is);
+        if(getErrorCode() == 200) {
+			if(contentFile.contains(".html"))
+				setMimeType("text/html");
+			else if(contentFile.contains(".gif"))
+				setMimeType("image/gif");
+			else if(contentFile.contains(".jpeg") || contentFile.contains(".jpg"))
+				setMimeType("image/jpeg");
+			else if(contentFile.contains(".png"))
+				setMimeType("image/png");
+			else if(contentFile.contains(".ico")) {
+				setFavicon(true);
+				setMimeType("image/x-icon");
+			}
+			else
+				setMimeType("text/html");
+		} else mimeType = "text/html";
+        writeHTTPHeader(os, getMimeType(), contentFile);
+        writeContent(os, getMimeType(), contentFile);
+        os.flush();
+        socket.close();
+        
+    } catch (Exception e) {
+        System.err.println("Output error: "+e);
+    }
+    System.err.println("Done handling connection.");
+    return;
 }
 
 /**
@@ -79,32 +132,37 @@ public void run()
 **/
 private String readHTTPRequest(InputStream is)
 {
-   String line;
-   String path = "";
-   BufferedReader r = new BufferedReader(new InputStreamReader(is));
+    String line;
+    String path = "";
+    BufferedReader r = new BufferedReader(new InputStreamReader(is));
    
-   while (true) {
-      try {
-         while (!r.ready()) Thread.sleep(1);
-         line = r.readLine();
-         // Parse the "GET" from request line and recieve file name
-         if(line.contains("GET ")) {
-			path = line.substring(4);
-			for(int i = 0; i < path.length(); i++) {
-				if(path.charAt(i) == ' ')
-					path = path.substring(0,i);
-			}
-			path = "." + path;
-		 System.err.println("Path collected: " + path);
-		}
-         System.err.println("Request line: ("+line+")");
-         if (line.length()==0) break;
-      } catch (Exception e) {
-         System.err.println("Request error: "+e);
-         break;
-      }
-   }
-   return path;
+    while (true) {
+        try {
+            while (!r.ready()) Thread.sleep(1);
+            line = r.readLine();
+            // Parse the "GET" from request line and recieve file name
+            if(line.contains("GET ")) {
+                path = line.substring(4);
+                for(int i = 0; i < path.length(); i++)
+                    if(path.charAt(i) == ' ')
+                        path = path.substring(0,i);
+            }
+            System.err.println("Request line: ("+line+")");
+            if (line.length()==0) 
+                break;
+        } 
+        catch (Exception e) {
+            System.err.println("Request error: "+e);
+            break;
+        }
+    }
+    
+	File file = new File(userDirectory+path);
+	if(file.exists())
+		setErrorCode(200);
+	else
+		setErrorCode(404);
+    return path;
 }
 
 /**
@@ -114,28 +172,22 @@ private String readHTTPRequest(InputStream is)
 **/
 private void writeHTTPHeader(OutputStream os, String contentType, String contentPath) throws Exception
 {
-
+    String path = userDirectory + contentPath;
 	try {
-		File contentFile = new File(contentPath);
-		// Check to see if file exists if so: errorcode - 200
-		if(contentFile.exists()) {
-			os.write("HTTP/1.1 200 OK\n".getBytes());
-			errorCode = 200;
-		}
-	}
+		FileReader contentFile = new FileReader(path);
+        os.write("HTTP/1.1 200 OK\n".getBytes());
+        System.out.println("Content Collected: "+path+" successfully!");
+    }
     // If file does not exist: errorcode - 404
     catch(FileNotFoundException fnfe) {
         os.write("HTTP/1.1 404 ERROR\n".getBytes());
-        System.err.println("ERROR: File " + contentPath + " does not exist!");
-        errorCode = 404;
     }
     
-    // Write all data of header
+    // Write all data of headermimeType
     os.write("Date: ".getBytes());
-    os.write((dateF.format(date)).getBytes());
+    os.write(getDate().getBytes());
     os.write("\n".getBytes());
     os.write("Server: Mason's very own server\n".getBytes());
-    os.write("Content-Length: 438\n".getBytes());
     os.write("Connection: close\n".getBytes());
     os.write("Content-Type: ".getBytes());
     os.write(contentType.getBytes());
@@ -148,38 +200,63 @@ private void writeHTTPHeader(OutputStream os, String contentType, String content
 * be done after the HTTP header has been written out.
 * @param os is the OutputStream object to write to
 **/
-private void writeContent(OutputStream os, String contentPath) throws Exception
+private void writeContent(OutputStream os, String contentType, String contentPath) throws Exception
 {
 	String content = "";
-	String pathCopy = contentPath;
+	String path = userDirectory + contentPath;
 	
-	// If the file exists
-	try {
-        File fileName = new File(pathCopy);
- 		BufferedReader inBuffer = new BufferedReader(new FileReader(fileName));
- 		
- 		// Loop to write out the contents on the line from the given file
- 		while((content = inBuffer.readLine()) != null) {
- 			if(content.contains("<cs371date>"))
- 				content += dateF.format(date); // Replace <cs371date> tag with today's date
- 			else if(content.contains("<cs371server>"))
- 				content += "This is my ID TAG"; // Replace <cs371server> with specified string
- 			os.write(content.getBytes());
- 			os.write( "\n".getBytes());
- 		}
-    } catch(FileNotFoundException fnfe) { // If file does not exist
-        write404Content(os);
+	if(contentType.contains("text/html")) {
+        // If the file exists
+        try {
+            File fileName = new File(path);
+            BufferedReader inBuffer = new BufferedReader(new FileReader(fileName));
+            
+            // Loop to write out the contents on the line from the given file
+            while((content = inBuffer.readLine()) != null) {
+                if(content.contains("<cs371date>"))
+					content = getDate(); // Replace <cs371date> tag with today's date
+                if(content.contains("<cs371server>"))
+					content = "This is my ID tag"; // Replace <cs371server> with specified string
+                os.write(content.getBytes());
+                os.write( "\n".getBytes());
+            }
+        } 
+        catch(FileNotFoundException fnfe) { // If file does not exist
+            System.err.println("ERROR: File "+path+" does not exist!");
+            write404Content(os,path);
+        }
+    }
+	else if(contentType.contains("image")) {
+		try{
+            File file = new File(path);
+            int fileLength = (int) file.length();
+            FileInputStream inputStream = new FileInputStream(file);
+            
+            byte allBytes[] = new byte[fileLength];
+            
+            inputStream.read(allBytes);
+            os.write(allBytes);
+		} catch (FileNotFoundException fnfe) {
+            System.err.println("ERROR: Image not found at: " +path);
+		}
+	} else {
+		write404Content(os,path);
 	}
 }
 /**
-* A Simple method to put into OutputStream the ERRORCODE 404
+* A Simple method to put into OutputStream the ERRORCODE 404 content
 * @param os is the OutputStream object to write to
+* @param path is the path of the object being requested
 **/
-private void write404Content(OutputStream os) throws Exception
+private void write404Content(OutputStream os, String path) throws Exception
 {
-    os.write("<body bgcolor = \"#87CEFA\">".getBytes());
-    os.write("<h1><b>404: Not Found</b></h1>".getBytes());
-    os.write("The page you are looking for does not exist!".getBytes());
+    os.write("<html>\n<body bgcolor = \"#87CEFA\">\n".getBytes());
+    os.write("<h1><b>404: Not Found</b></h1>\n".getBytes());
+    os.write("The page you are looking for does not exist!\n".getBytes());
+    os.write("Unable to locate:".getBytes());
+    os.write(path.getBytes());
+    
+
 }
 
 } // end class
