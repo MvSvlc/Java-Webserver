@@ -1,4 +1,4 @@
-<project name = "WebServer2" default = "compile">
+<project name = "WebServer2" default = "compile" basedir = ".">
     
     <!-- Compiles all java files -->
     <target name = "compile">
@@ -12,8 +12,11 @@
     
     <!-- Cleans all classes from compilation -->
     <target name = "clean">
-        <delete file = "WebServer.class"/>
-        <delete file = "WebWorker.class"/>
+        <delete>
+            <fileset dir = ".">
+                <include name="*.class"/>
+            </fileset>
+        </delete>
     </target>
     
 </project>
